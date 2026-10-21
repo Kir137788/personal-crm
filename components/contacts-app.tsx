@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowLeft, ArrowRight, Check, ChevronRight, CircleHelp, LoaderCircle, Mail, NotebookPen, Plus, Search, Users, X, Phone, Sprout, Circle } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowRight, Check, ChevronRight, CircleHelp, LoaderCircle, Mail, NotebookPen, Plus, Search, Users, X, Phone, Sprout } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Contact } from "@/lib/types";
@@ -30,7 +30,7 @@ export function ContactsApp() {
  function update(contact: Contact) { setContacts(items=>items.map(c=>c.id===contact.id?contact:c));setSelected(contact);setToast("Заметка сохранена"); }
  return <div className="app-shell">
   <aside className="sidebar">
-   <a className="brand" href="/" aria-label="Круг — главная"><span className="brand-mark"><Circle size={21}/><span/></span>круг<span className="brand-dot">.</span></a>
+   <a className="brand" href="/" aria-label="Круг — главная"><span className="brand-mark" aria-hidden="true"/>круг</a>
    <div className="workspace-label">ЛИЧНОЕ ПРОСТРАНСТВО</div>
    <button className="nav-item active" onClick={()=>{setSearch("");setPage(1);}}><Users size={18}/><span>Все контакты</span><span className="nav-count">{loading?"—":contacts.length}</span></button>
    <div className="sidebar-note"><span className="note-illustration"><Sprout size={32} strokeWidth={1.4}/></span><h3>Хорошие связи<br/>начинаются с внимания</h3><p>Сохраняйте не только номера,<br/>но и то, что вас связывает.</p></div>
@@ -39,7 +39,7 @@ export function ContactsApp() {
   <main className="main">
    <header className="topbar"><span>Мой круг</span><ChevronRight size={14}/><strong>Контакты</strong><span className="topbar-caption">Место для ваших людей</span></header>
    <section className="content">
-    <div className="page-heading"><div><div className="eyebrow">ЛЮДИ, КОТОРЫХ ВЫ ЗНАЕТЕ</div><h1>Ваш круг общения<span>.</span></h1><p>Люди, встречи и детали, которые хочется помнить.</p></div><Button onClick={()=>setCreating(true)}><Plus size={18}/>Добавить контакт</Button></div>
+    <div className="page-heading"><div><div className="eyebrow">ЛЮДИ, КОТОРЫХ ВЫ ЗНАЕТЕ</div><h1>Ваш <span>круг общения.</span></h1><p>Люди, встречи и детали, которые хочется помнить.</p></div><Button onClick={()=>setCreating(true)}><Plus size={18}/>Добавить контакт</Button></div>
     <div className="summary-grid">
      <div className="summary-card"><span className="stat-icon sage"><Users size={20}/></span><div><small>Всего контактов</small><strong>{loading?"—":contacts.length.toLocaleString("ru-RU")}</strong></div><span className="stat-tail">в вашем круге</span></div>
      <div className="summary-card"><span className="stat-icon peach"><NotebookPen size={20}/></span><div><small>С заметками</small><strong>{loading?"—":contacts.filter(c=>c.notes.trim()).length.toLocaleString("ru-RU")}</strong></div><span className="stat-tail">контекст сохранён</span></div>
