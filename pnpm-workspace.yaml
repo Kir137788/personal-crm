@@ -1,2 +1,5 @@
 allowBuilds:
   esbuild: true
+
+# CI installs the frozen lockfile; runtime containers must not reinstall dependencies.
+verifyDepsBeforeRun: false
