@@ -1,0 +1,47 @@
+name: prod
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+services:
+  db:
+    image: postgres:18
+    restart: unless-stopped
+    env_file: /opt/personal-crm/.env
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    logging: *logging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U krug -d krug"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+  app:
+    image: ghcr.io/kir137788/personal-crm:${APP_REVISION:?required}
+    restart: unless-stopped
+    env_file: /opt/personal-crm/.env
+    environment:
+      APP_REVISION: ${APP_REVISION}
+    ports:
+      - "127.0.0.1:3000:3000"
+    logging: *logging
+    depends_on:
+      db:
+        condition: service_healthy
+  migrate:
+    image: ghcr.io/kir137788/personal-crm:${APP_REVISION:?required}
+    profiles: [tools]
+    env_file: /opt/personal-crm/.env
+    command: [pnpm, db:migrate]
+    logging: *logging
+  seed:
+    image: ghcr.io/kir137788/personal-crm:${APP_REVISION:?required}
+    profiles: [tools]
+    env_file: /opt/personal-crm/.env
+    command: [pnpm, db:seed]
+    logging: *logging
+volumes:
+  postgres_data:
+    external: true
+    name: krug_postgres_data
