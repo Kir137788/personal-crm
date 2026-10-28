@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowLeft, ArrowRight, Check, ChevronRight, CircleHelp, LoaderCircle, Mail, NotebookPen, Plus, Search, Users, X, Phone, Sprout } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowRight, Check, ChevronRight, CircleHelp, LoaderCircle, Mail, NotebookPen, Plus, Search, Users, X, Phone, Sprout, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Contact } from "@/lib/types";
@@ -56,7 +56,7 @@ export function ContactsApp() {
    </section>
   </main>
   {creating&&<ContactForm onClose={()=>setCreating(false)} onCreated={c=>{setContacts(items=>[...items,c]);setSearch("");setPage(1);setCreating(false);setSelected(c);setToast("Контакт добавлен");}}/>}
-  {selected&&!creating&&<ContactDetails key={selected.id} contact={selected} onClose={()=>{setSelected(null);void load();}} onSaved={update}/>}
+  {selected&&!creating&&<ContactDetails key={selected.id} contact={selected} onClose={()=>{setSelected(null);void load();}} onSaved={update} onDeleted={id=>{setContacts(items=>items.filter(c=>c.id!==id));setSelected(null);setToast("Контакт удалён");requestAnimationFrame(()=>searchRef.current?.focus());}}/>}
   {toast&&<div className="toast" role="status"><Check size={18}/>{toast}</div>}
  </div>;
 }
@@ -72,10 +72,35 @@ function ContactForm({onClose,onCreated}: {onClose:()=>void;onCreated:(c:Contact
  async function submit(e:React.FormEvent<HTMLFormElement>){e.preventDefault();setBusy(true);setError("");const data=Object.fromEntries(new FormData(e.currentTarget));try{const r=await fetch("/api/contacts",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});const result=await r.json();if(!r.ok)throw new Error(result.error);onCreated(result);}catch(e){setError(e instanceof Error?e.message:"Не удалось сохранить контакт");}finally{setBusy(false);}}
  return <Sheet title="Новый контакт" onClose={close}><div className="sheet-body"><div className="form-intro"><span className="stat-icon sage"><Users size={25}/></span><h2>Добавьте человека<br/>в свой круг</h2><p>Начните с имени. Остальное можно оставить пустым.</p></div><form onSubmit={submit} onChange={()=>setDirty(true)}><fieldset disabled={busy} className="form-fields"><label>Имя <span className="required">*</span><Input name="name" placeholder="Например, Анна Смирнова" required maxLength={150} autoFocus/></label><label>Откуда знакомы<Input name="context" placeholder="Работа, друзья, случайная встреча…" maxLength={1000}/></label><div className="form-pair"><label>Телефон<Input name="phone" type="tel" placeholder="+7 …" maxLength={80}/></label><label>Почта<Input name="email" type="email" placeholder="name@example.com"/></label></div><label>Заметка<textarea name="notes" placeholder="Что важно помнить об этом человеке?" rows={5} maxLength={20000}/></label></fieldset>{error&&<p className="form-error" role="alert">{error}</p>}<div className="form-actions"><Button variant="outline" type="button" onClick={close} disabled={busy}>Отмена</Button><Button type="submit" disabled={busy}>{busy?<LoaderCircle size={16} className="animate-spin"/>:<Plus size={16}/>}Добавить контакт</Button></div></form></div></Sheet>;
 }
-function ContactDetails({contact,onClose,onSaved}: {contact:Contact;onClose:()=>void;onSaved:(c:Contact)=>void}) {
+function ContactDetails({contact,onClose,onSaved,onDeleted}: {contact:Contact;onClose:()=>void;onSaved:(c:Contact)=>void;onDeleted:(id:string)=>void}) {
  const [notes,setNotes]=useState(contact.notes);const [busy,setBusy]=useState(false);const [error,setError]=useState("");
+ const [confirmDelete,setConfirmDelete]=useState(false);
+ const [deleting,setDeleting]=useState(false);
+ const deletingRef=useRef(false);
+ const deleteTrigger=useRef<HTMLButtonElement>(null);
+ const cancelDelete=useRef<HTMLButtonElement>(null);
+ const wasConfirming=useRef(false);
+ useEffect(()=>{if(confirmDelete)cancelDelete.current?.focus();else if(wasConfirming.current)deleteTrigger.current?.focus();wasConfirming.current=confirmDelete;},[confirmDelete]);
+ const dismissDelete=()=>{if(!deletingRef.current){setConfirmDelete(false);deleteTrigger.current?.focus();}};
  const dirty=notes!==contact.notes;
- const close=()=>{if(!busy&&(!dirty||window.confirm("В заметке есть несохранённые изменения. Закрыть без сохранения?")))onClose();};
+ const close=()=>{if(deletingRef.current)return;if(confirmDelete){dismissDelete();return;}if(!busy&&(!dirty||window.confirm("В заметке есть несохранённые изменения. Закрыть без сохранения?")))onClose();};
  async function save(){setBusy(true);setError("");try{const r=await fetch(`/api/contacts/${contact.id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({notes,updatedAt:contact.updatedAt})});const data=await r.json();if(!r.ok)throw new Error(data.error);onSaved(data);}catch(e){setError(e instanceof Error?e.message:"Не удалось сохранить заметку");}finally{setBusy(false);}}
- return <Sheet title="Карточка контакта" onClose={close}><div className="sheet-body"><div className="profile"><Avatar name={contact.name} large/><h2>{contact.name}</h2><span>В вашем круге с {date(contact.createdAt)}</span></div><div className="detail-group"><h3>ОТКУДА ЗНАКОМЫ</h3><p>{contact.context||"Пока не указано"}</p></div><div className="detail-group"><h3>КОНТАКТЫ</h3><div className="detail-line"><Phone size={17}/>{contact.phone?<a href={`tel:${contact.phone.replace(/[^+0-9]/g,"")}`}>{contact.phone}</a>:<span>Телефон не указан</span>}</div><div className="detail-line"><Mail size={17}/>{contact.email?<a href={`mailto:${contact.email}`}>{contact.email}</a>:<span>Почта не указана</span>}</div></div><div className="notes-heading"><NotebookPen size={18}/><h3>Заметки о человеке</h3></div><p className="notes-hint">О чём говорили, что обещали, что хочется запомнить.</p><label className="sr-only" htmlFor="contact-notes">Заметка о контакте</label><textarea id="contact-notes" value={notes} onChange={e=>setNotes(e.target.value)} rows={9} maxLength={20000} disabled={busy} placeholder="Добавьте заметку после разговора…"/>{error&&<p className="form-error" role="alert">{error}</p>}<div className="save-row"><span aria-live="polite">{dirty?"Есть несохранённые изменения":`Сохранено · ${date(contact.updatedAt)}`}</span><Button onClick={save} disabled={busy||!dirty}>{busy?<LoaderCircle size={16} className="animate-spin"/>:<Check size={16}/>}Сохранить</Button></div></div></Sheet>;
+ async function remove(){
+  if(deletingRef.current)return;
+  deletingRef.current=true;setDeleting(true);setError("");
+  try {
+   const response=await fetch(`/api/contacts/${contact.id}`,{method:"DELETE"});
+   if(!response.ok&&response.status!==404)throw new Error();
+   onDeleted(contact.id);
+  } catch {setError("Не удалось удалить контакт. Проверьте соединение и попробуйте ещё раз.");}
+  finally {deletingRef.current=false;setDeleting(false);}
+ }
+ return <Sheet title="Карточка контакта" onClose={close}><div className="sheet-body"><div className="profile"><Avatar name={contact.name} large/><h2>{contact.name}</h2><span>В вашем круге с {date(contact.createdAt)}</span></div><div className="detail-group"><h3>ОТКУДА ЗНАКОМЫ</h3><p>{contact.context||"Пока не указано"}</p></div><div className="detail-group"><h3>КОНТАКТЫ</h3><div className="detail-line"><Phone size={17}/>{contact.phone?<a href={`tel:${contact.phone.replace(/[^+0-9]/g,"")}`}>{contact.phone}</a>:<span>Телефон не указан</span>}</div><div className="detail-line"><Mail size={17}/>{contact.email?<a href={`mailto:${contact.email}`}>{contact.email}</a>:<span>Почта не указана</span>}</div></div><div className="notes-heading"><NotebookPen size={18}/><h3>Заметки о человеке</h3></div><p className="notes-hint">О чём говорили, что обещали, что хочется запомнить.</p><label className="sr-only" htmlFor="contact-notes">Заметка о контакте</label><textarea id="contact-notes" value={notes} onChange={e=>setNotes(e.target.value)} rows={9} maxLength={20000} disabled={busy||deleting} placeholder="Добавьте заметку после разговора…"/>{error&&<p className="form-error" role="alert">{error}</p>}<div className="save-row"><span aria-live="polite">{dirty?"Есть несохранённые изменения":`Сохранено · ${date(contact.updatedAt)}`}</span><Button onClick={save} disabled={busy||deleting||confirmDelete||!dirty}>{busy?<LoaderCircle size={16} className="animate-spin"/>:<Check size={16}/>}Сохранить</Button></div>
+ <div className="delete-contact-area">
+  {confirmDelete?<section className="delete-confirmation" aria-labelledby="delete-title" aria-busy={deleting}>
+   <h3 id="delete-title">Удалить контакт «{contact.name}»?</h3>
+   <p>Контакт и все заметки о нём будут удалены без возможности восстановления.{dirty?" Несохранённые изменения заметки тоже будут потеряны.":""}</p>
+   <div className="delete-actions"><Button ref={cancelDelete} variant="outline" onClick={dismissDelete} disabled={deleting}>Отмена</Button><Button onClick={()=>void remove()} disabled={deleting}>{deleting?<LoaderCircle size={16} className="animate-spin"/>:<Trash2 size={16}/>} {deleting?"Удаляем…":"Да, удалить"}</Button></div>
+  </section>:<Button ref={deleteTrigger} variant="outline" className="delete-contact-button" onClick={()=>{setError("");setConfirmDelete(true);}} disabled={busy}><Trash2 size={16}/>Удалить контакт</Button>}
+ </div></div></Sheet>;
 }
