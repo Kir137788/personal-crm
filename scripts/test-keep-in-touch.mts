@@ -82,7 +82,11 @@ try {
  history=await (await notesApi.GET(req({}),ctx(old.id))).json();const note=history.find((x:any)=>!x.legacy);
  await editApi.PATCH(req({body:"Только опечатка",updatedAt:note.updatedAt},"PATCH"),{params:Promise.resolve({id:old.id,noteId:note.id})});
  assert.ok((await (await dueApi.GET()).json()).contacts.some((x:any)=>x.id===old.id));
- await client`delete from contacts where id=${old.id}`;assert.equal((await client`select * from contact_notes where contact_id=${old.id}`).length,0);
+ const deleteApi=await import("../app/api/contacts/[id]/route.ts");
+ assert.equal((await deleteApi.DELETE(req({}),ctx("invalid"))).status,400);
+ const deletions=await Promise.all([deleteApi.DELETE(req({}),ctx(old.id)),deleteApi.DELETE(req({}),ctx(old.id))]);
+ assert.deepEqual(deletions.map(r=>r.status).sort(),[204,404]);
+ assert.equal((await client`select * from contact_notes where contact_id=${old.id}`).length,0);
  console.log("PASS reminders: enable/change/disable/re-enable, conflict, due/reset/edit, cascade");
  const anchor=new Date(Date.now()-40*DAY_MS).toISOString();
  const ordered=await client`insert into contacts(name,contact_interval_days,reminder_enabled_at) values ('Борис',7,${anchor}),('Анна',7,${anchor}),('Отключён',null,${anchor}) returning id,name`;
