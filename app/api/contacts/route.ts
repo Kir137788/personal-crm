@@ -1,14 +1,21 @@
 import { NextResponse } from "next/server";
-import { asc } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { contacts } from "@/lib/schema";
+import { contacts, contactNotes } from "@/lib/schema";
 import { contactInput } from "@/lib/validation";
+import { getContact, listContacts } from "@/lib/contact-queries";
+import { failure, unavailable, jsonBody } from "@/lib/api-response";
 export const dynamic = "force-dynamic";
-export async function GET() { try { return NextResponse.json(await db.select().from(contacts).orderBy(asc(contacts.name)), { headers: { "Cache-Control": "no-store" } }); } catch { return NextResponse.json({ error: "Не удалось загрузить контакты. Попробуйте ещё раз." }, { status: 503 }); } }
+export async function GET() { try { return NextResponse.json(await listContacts(), {headers:{"Cache-Control":"no-store"}}); } catch { return unavailable(); } }
 export async function POST(request: Request) {
- try { const parsed = contactInput.safeParse(await request.json());
- if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
- const [contact] = await db.insert(contacts).values(parsed.data).returning();
- return NextResponse.json(contact, { status: 201 });
- } catch { return NextResponse.json({ error: "Не удалось сохранить контакт. Попробуйте ещё раз." }, { status: 500 }); }
+  const parsed = contactInput.safeParse(await jsonBody(request));
+  if (!parsed.success) return failure(400, "Проверьте данные контакта");
+  try {
+    const id = await db.transaction(async tx => {
+      const {notes, ...data} = parsed.data;
+      const [contact] = await tx.insert(contacts).values({...data, notes: ""}).returning();
+      if (notes.trim()) await tx.insert(contactNotes).values({contactId: contact.id, body: notes, occurredAt: new Date()});
+      return contact.id;
+    });
+    return NextResponse.json(await getContact(id), {status:201});
+  } catch { return unavailable(); }
 }

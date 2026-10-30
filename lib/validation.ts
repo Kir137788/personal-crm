@@ -7,3 +7,7 @@ export const contactInput = z.object({
   notes: z.string().max(20000, "Заметка слишком длинная").default(""),
 });
 export const noteInput = z.object({ notes: z.string().max(20000, "Заметка слишком длинная"), updatedAt: z.iso.datetime() });
+export const noteBody = z.string().max(20000).refine(value => value.trim().length > 0);
+export const newNoteInput = z.object({ id: z.uuid(), body: noteBody });
+export const editNoteInput = z.object({ body: noteBody, updatedAt: z.iso.datetime() });
+export const reminderInput = z.object({ contactIntervalDays: z.union([z.literal(7), z.literal(30), z.literal(90), z.literal(365), z.null()]), updatedAt: z.iso.datetime() });
