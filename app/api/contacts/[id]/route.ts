@@ -1,17 +1,22 @@
 import { NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { contacts } from "@/lib/schema";
 import { noteInput } from "@/lib/validation";
+import { failure, unavailable, jsonBody } from "@/lib/api-response";
+import { contactFields } from "@/lib/contact-queries";
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
- try {
- const { id } = await params;
- if (!z.uuid().safeParse(id).success) return NextResponse.json({ error: "Контакт не найден" }, { status: 404 });
- const parsed = noteInput.safeParse(await request.json());
- if (!parsed.success) return NextResponse.json({ error: "Проверьте текст заметки" }, { status: 400 });
- const [contact] = await db.update(contacts).set({ notes: parsed.data.notes, updatedAt: new Date() }).where(and(eq(contacts.id, id), eq(contacts.updatedAt, new Date(parsed.data.updatedAt)))).returning();
- if (!contact) return NextResponse.json({ error: "Контакт изменён в другом окне. Скопируйте свою заметку и откройте карточку заново." }, { status: 409 });
- return NextResponse.json(contact);
- } catch { return NextResponse.json({ error: "Не удалось сохранить заметку. Текст остался в поле — попробуйте ещё раз." }, { status: 500 }); }
+ const {id}=await params;
+ if(!z.uuid().safeParse(id).success)return failure(404,"Контакт не найден");
+ const input=noteInput.safeParse(await jsonBody(request));
+ if(!input.success)return failure(400,"Проверьте текст заметки");
+ try {return await db.transaction(async tx=>{
+  const [current]=await tx.select().from(contacts).where(eq(contacts.id,id)).for("update");
+  if(!current)return failure(404,"Контакт не найден");
+  if(current.updatedAt.toISOString()!==input.data.updatedAt)return failure(409,"Контакт изменён в другом окне. Скопируйте свою заметку и откройте карточку заново.");
+  await tx.update(contacts).set({notes:input.data.notes,updatedAt:sql`greatest(clock_timestamp(), ${contacts.updatedAt} + interval '1 millisecond')`}).where(eq(contacts.id,id));
+  const [contact]=await tx.select(contactFields).from(contacts).where(eq(contacts.id,id));
+  return NextResponse.json(contact);
+ });}catch{return unavailable();}
 }

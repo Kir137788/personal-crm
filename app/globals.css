@@ -52,3 +52,17 @@ textarea{background:var(--bg);border-color:var(--line)}
  td:nth-child(3),td:nth-child(4){display:none}td:last-child{grid-column:2;grid-row:1/3;align-self:center}
  .sheet-top{padding:13px 20px}.sheet-body{padding:24px 20px}
 }
+
+/* Keep-in-touch uses the existing warm design tokens. */
+:root{--journal-gap:16px;--journal-radius:16px}
+.due-panel{border:1px solid var(--line);background:var(--paper);border-radius:var(--journal-radius);margin-bottom:24px;overflow:hidden}
+.due-state{padding:0 26px 24px;color:var(--muted)}
+.due-list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+.due-person{width:100%;display:flex;align-items:center;gap:12px;text-align:left;padding:20px 26px;border:0;border-top:1px solid var(--line);background:transparent;color:var(--ink)}
+.due-person:hover{background:var(--bg)}.due-person>span:nth-child(2){flex:1;min-width:0}.due-person strong{display:block;overflow-wrap:anywhere}.due-person small{display:block;margin-top:5px;color:var(--accent)}
+.reminder-settings{padding:24px 0;border-bottom:1px solid var(--line)}.reminder-settings h3{font-family:var(--font-display);font-size:24px}.reminder-settings label{font-size:12px;display:block;margin-bottom:8px}
+.reminder-controls{display:flex;gap:10px;flex-wrap:wrap}.reminder-controls select{flex:1;min-width:160px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink);font:inherit}
+select:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.journal-list{margin-top:24px;display:grid;gap:var(--journal-gap)}.journal-entry{border:1px solid var(--line);border-radius:var(--journal-radius);padding:var(--journal-gap);background:var(--bg)}
+.journal-meta{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;color:var(--muted);font-size:11px;margin-bottom:12px}.journal-body{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.7;margin:0 0 12px}.journal-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.journal-notice{color:var(--accent);margin-top:16px;font-size:12px}
+@media(max-width:760px){.due-list{grid-template-columns:minmax(0,1fr)}.due-person{padding:16px}.due-state{padding:0 16px 20px}.reminder-controls select,.journal-entry textarea,#new-contact-note{font-size:16px}.reminder-controls>button{width:100%}}
