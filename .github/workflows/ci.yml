@@ -35,6 +35,8 @@ jobs:
         run: pnpm typecheck
       - name: Run unit tests
         run: pnpm test
+      - name: Run integration tests
+        run: pnpm test:integration
       - name: Install Playwright browser
         run: pnpm exec playwright install --with-deps chromium
       - name: Run end-to-end tests
