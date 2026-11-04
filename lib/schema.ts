@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, uuid, text, timestamp, index, integer, boolean, check, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, index, integer, boolean, check, uniqueIndex, primaryKey } from "drizzle-orm/pg-core";
 export const contacts = pgTable("contacts", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
@@ -12,6 +12,22 @@ export const contacts = pgTable("contacts", {
   createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
 }, (t) => [index("contacts_name_idx").on(t.name), check("contacts_interval_check", sql`${t.contactIntervalDays} in (7,30,90,365)`)]);
+export const contactGroups = pgTable("contact_groups", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  normalizedName: text("normalized_name").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
+}, (t) => [uniqueIndex("contact_groups_normalized_name_idx").on(t.normalizedName)]);
+
+export const contactGroupMemberships = pgTable("contact_group_memberships", {
+  contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "cascade" }),
+  groupId: uuid("group_id").notNull().references(() => contactGroups.id, { onDelete: "cascade" }),
+}, (t) => [
+  primaryKey({ columns: [t.contactId, t.groupId] }),
+  index("contact_group_memberships_group_idx").on(t.groupId),
+]);
+
 export const contactNotes = pgTable("contact_notes", {
   id: uuid("id").primaryKey().defaultRandom(),
   contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "cascade" }),

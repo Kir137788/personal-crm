@@ -6,6 +6,8 @@
     "dev": "next dev --hostname 127.0.0.1",
     "build": "next build",
     "start": "next start --hostname 127.0.0.1",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
@@ -34,6 +36,7 @@
     "@tailwindcss/postcss": "latest",
     "drizzle-kit": "latest",
     "tsx": "latest",
-    "dotenv": "latest"
+    "dotenv": "latest",
+    "vitest": "5.1.0"
   }
 }

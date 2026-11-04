@@ -1,12 +1,16 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { ArrowDown, ArrowLeft, ArrowRight, Check, ChevronRight, CircleHelp, LoaderCircle, Mail, NotebookPen, Plus, Search, Users, X, Phone, Sprout, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ContactJournal } from "./contact-journal";
+import { GroupBadges, GroupPicker } from "./group-picker";
+import { GroupManager } from "./group-manager";
 import { daysLabel } from "@/lib/keep-in-touch";
+import { ALL_GROUPS, UNGROUPED, filterContacts } from "@/lib/contact-filters";
+import { groupUiReducer, initialGroupUiState } from "@/lib/group-ui-state";
 import type { DueContact } from "@/lib/types";
-import type { Contact } from "@/lib/types";
+import type { Contact, ContactGroup } from "@/lib/types";
 
 const date = (value: string) => new Date(value).toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
 const initials = (name: string) => name.split(/\s+/).slice(0,2).map(n=>n[0]).join("");
@@ -14,6 +18,10 @@ function Avatar({name, large=false}: {name: string; large?: boolean}) { const co
 
 export function ContactsApp() {
  const [contacts,setContacts]=useState<Contact[]>([]);
+ const [groupState,dispatchGroups]=useReducer(groupUiReducer,[],initialGroupUiState);
+ const [groupFilter,setGroupFilter]=useState(ALL_GROUPS);
+ const [groupsLoading,setGroupsLoading]=useState(true),[groupsLoadError,setGroupsLoadError]=useState("");
+ const groupSeq=useRef(0);
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState("");
  const [search,setSearch]=useState("");
@@ -25,12 +33,14 @@ export function ContactsApp() {
  const loadSeq=useRef(0);
  const [due,setDue]=useState<DueContact[]>([]),[dueError,setDueError]=useState(""),[dueLoading,setDueLoading]=useState(true);
  const dueSeq=useRef(0);
+ const loadGroups=useCallback(async()=>{const seq=++groupSeq.current;try{const response=await fetch("/api/groups",{cache:"no-store"});if(!response.ok)throw new Error();const data=await response.json() as ContactGroup[];if(seq===groupSeq.current){dispatchGroups({type:"sync",groups:data.map(group=>({id:group.id,name:group.name}))});setGroupsLoadError("");}}catch{if(seq===groupSeq.current)setGroupsLoadError("Не удалось загрузить группы.");}finally{if(seq===groupSeq.current)setGroupsLoading(false);}},[]);
  const loadDue=useCallback(async()=>{const seq=++dueSeq.current;try{const r=await fetch("/api/contacts/due",{cache:"no-store"});if(!r.ok)throw new Error();const data=await r.json();if(seq===dueSeq.current){setDue(data.contacts);setDueError("");}}catch{if(seq===dueSeq.current)setDueError("Не удалось загрузить напоминания.");}finally{if(seq===dueSeq.current)setDueLoading(false);}},[]);
  const load=useCallback(async()=>{ const seq=++loadSeq.current; setError(""); try { const r=await fetch("/api/contacts",{cache:"no-store"}); if(!r.ok) throw new Error(); const data=await r.json();if(seq===loadSeq.current){setContacts(data);setSelected(current=>current?data.find((c:Contact)=>c.id===current.id)??null:null);} } catch { if(seq===loadSeq.current)setError("Не удалось загрузить контакты. Проверьте, что база запущена, и попробуйте снова."); } finally {if(seq===loadSeq.current)setLoading(false);} },[]);
- useEffect(()=>{const refresh=()=>{if(document.visibilityState==="visible"){void load();void loadDue();}};refresh();const timer=setInterval(refresh,60000);window.addEventListener("focus",refresh);document.addEventListener("visibilitychange",refresh);return()=>{clearInterval(timer);loadSeq.current++;dueSeq.current++;window.removeEventListener("focus",refresh);document.removeEventListener("visibilitychange",refresh);};},[load,loadDue]);
+ useEffect(()=>{const refresh=()=>{if(document.visibilityState==="visible"){void load();void loadDue();void loadGroups();}};refresh();const timer=setInterval(refresh,60000);window.addEventListener("focus",refresh);document.addEventListener("visibilitychange",refresh);return()=>{clearInterval(timer);loadSeq.current++;dueSeq.current++;groupSeq.current++;window.removeEventListener("focus",refresh);document.removeEventListener("visibilitychange",refresh);};},[load,loadDue,loadGroups]);
  useEffect(()=>{if(!toast)return;const timer=setTimeout(()=>setToast(""),4000);return()=>clearTimeout(timer);},[toast]);
  useEffect(()=>{const handler=(e:KeyboardEvent)=>{if((e.metaKey||e.ctrlKey)&&e.key==="k"){e.preventDefault();searchRef.current?.focus();}};window.addEventListener("keydown",handler);return()=>window.removeEventListener("keydown",handler);},[]);
- const filtered=contacts.filter(c=>`${c.name} ${c.context} ${c.email} ${c.phone}`.toLocaleLowerCase("ru").includes(search.toLocaleLowerCase("ru").trim())).sort((a,b)=>a.name.localeCompare(b.name,"ru"));
+ useEffect(()=>{if(groupFilter!==ALL_GROUPS&&groupFilter!==UNGROUPED&&!groupState.groups.some(group=>group.id===groupFilter))setGroupFilter(ALL_GROUPS);},[groupFilter,groupState.groups]);
+ const filtered=filterContacts(contacts,groupFilter,search).sort((a,b)=>a.name.localeCompare(b.name,"ru"));
  const pages=Math.max(1,Math.ceil(filtered.length/50));
  const currentPage=Math.min(page,pages);
  const visible=filtered.slice((currentPage-1)*50,currentPage*50);
@@ -52,21 +62,31 @@ export function ContactsApp() {
      <div className="summary-card"><span className="stat-icon peach"><NotebookPen size={20}/></span><div><small>С заметками</small><strong>{loading?"—":contacts.filter(c=>c.hasNotes).length.toLocaleString("ru-RU")}</strong></div><span className="stat-tail">контекст сохранён</span></div>
     </div>
     <section className="due-panel" aria-labelledby="due-title"><div className="panel-heading"><div><h2 id="due-title">Пора связаться <span>{dueLoading?"…":dueError?"—":due.length}</span></h2><p>Немного внимания тем, с кем давно не говорили.</p></div></div>
-     {dueLoading?<p className="due-state">Загружаем напоминания…</p>:dueError?<div className="due-state" role="alert">{dueError}<Button variant="ghost" onClick={()=>void loadDue()}>Повторить</Button></div>:!due.length?<p className="due-state">Пока не пора ни с кем связываться</p>:<ul className="due-list">{due.map(c=><li key={c.id}><button className="due-person" onClick={()=>setSelected(c)}><Avatar name={c.name}/><span><strong>{c.name}</strong><small>Просрочено на {daysLabel(c.overdueDays)}</small></span><ChevronRight size={18}/></button></li>)}</ul>}
+     {dueLoading?<p className="due-state">Загружаем напоминания…</p>:dueError?<div className="due-state" role="alert">{dueError}<Button variant="ghost" onClick={()=>void loadDue()}>Повторить</Button></div>:!due.length?<p className="due-state">Пока не пора ни с кем связываться</p>:<ul className="due-list">{due.map(c=><li key={c.id}><button className="due-person" onClick={()=>setSelected(contacts.find(contact=>contact.id===c.id)??{...c,groups:[]})}><Avatar name={c.name}/><span><strong>{c.name}</strong><small>Просрочено на {daysLabel(c.overdueDays)}</small></span><ChevronRight size={18}/></button></li>)}</ul>}
     </section>
     <section className="contacts-panel" aria-label="Список контактов">
      <div className="panel-heading"><div><h2>Все контакты <span>{loading?"…":contacts.length}</span></h2><p>Откройте карточку, чтобы вспомнить детали общения.</p></div><span className="sort-label">По имени <ArrowDown size={14}/></span></div>
+     <div className="group-tools">
+      <div className="group-filter-wrap"><span>Показать</span><div className="group-filters" role="group" aria-label="Фильтр по группе">
+       <button type="button" aria-pressed={groupFilter===ALL_GROUPS} onClick={()=>{setGroupFilter(ALL_GROUPS);setPage(1);}}>Все</button>
+       {groupState.groups.map(group=><button type="button" key={group.id} aria-pressed={groupFilter===group.id} onClick={()=>{setGroupFilter(group.id);setPage(1);}}>{group.name}</button>)}
+       <button type="button" aria-pressed={groupFilter===UNGROUPED} onClick={()=>{setGroupFilter(UNGROUPED);setPage(1);}}>Без группы</button>
+      </div></div>
+      <GroupManager state={groupState} dispatch={dispatchGroups} onChanged={()=>void load()}/>
+     </div>
+     {groupsLoading&&<p className="group-load-state">Загружаем группы…</p>}
+     {groupsLoadError&&<p className="group-load-state form-error" role="alert">{groupsLoadError} <button onClick={()=>void loadGroups()}>Повторить</button></p>}
      <div className="search-row"><div className="search-field"><Search size={19}/><input ref={searchRef} placeholder="Найти по имени, почте или знакомству…" aria-label="Поиск контактов" value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}}/>{search?<button aria-label="Очистить поиск" onClick={()=>{setSearch("");setPage(1);}}><X size={16}/></button>:<kbd>⌘ K</kbd>}</div>{search&&<span className="search-count">Найдено: {filtered.length}</span>}</div>
      {error?<div className="empty-state" role="alert"><CircleHelp/><h3>Контакты пока недоступны</h3><p>{error}</p><Button variant="outline" onClick={()=>{setLoading(true);void load();}}>Повторить</Button></div>:loading?<div className="empty-state"><LoaderCircle className="animate-spin"/><p>Загружаем ваш круг…</p></div>:!filtered.length?<div className="empty-state"><Users size={32}/><h3>{search?"Никого не нашли":"Начните с первого знакомства"}</h3><p>{search?"Попробуйте другое имя или очистите поиск.":"Добавьте человека и пару слов о том, что вас связывает."}</p><Button variant="outline" onClick={()=>search?setSearch(""):setCreating(true)}>{search?"Очистить поиск":"Добавить контакт"}</Button></div>:<>
-      <div className="table-scroll"><table><thead><tr><th>ИМЯ</th><th>ОТКУДА ЗНАКОМЫ</th><th>КОНТАКТЫ</th><th>ОБНОВЛЕНО</th><th><span className="sr-only">Открыть</span></th></tr></thead><tbody>{visible.map(c=><tr key={c.id} onClick={()=>setSelected(c)}><td><button className="contact-name" onClick={e=>{e.stopPropagation();setSelected(c);}}><Avatar name={c.name}/><span><strong>{c.name}</strong><small>{c.hasNotes?"Есть заметка":"Пока без заметок"}</small></span></button></td><td><span className="context-cell">{c.context||"Не указано"}</span></td><td><span className="email-cell">{c.email||c.phone||"—"}</span></td><td><span className="date-cell">{date(c.updatedAt)}</span></td><td><ChevronRight size={17} className="row-arrow"/></td></tr>)}</tbody></table></div>
+      <div className="table-scroll"><table><thead><tr><th>ИМЯ</th><th>ОТКУДА ЗНАКОМЫ</th><th>КОНТАКТЫ</th><th>ОБНОВЛЕНО</th><th><span className="sr-only">Открыть</span></th></tr></thead><tbody>{visible.map(c=><tr key={c.id} onClick={()=>setSelected(c)}><td><button className="contact-name" onClick={e=>{e.stopPropagation();setSelected(c);}}><Avatar name={c.name}/><span><strong>{c.name}</strong><small>{c.hasNotes?"Есть заметка":"Пока без заметок"}</small><GroupBadges groups={c.groups}/></span></button></td><td><span className="context-cell">{c.context||"Не указано"}</span></td><td><span className="email-cell">{c.email||c.phone||"—"}</span></td><td><span className="date-cell">{date(c.updatedAt)}</span></td><td><ChevronRight size={17} className="row-arrow"/></td></tr>)}</tbody></table></div>
       <div className="pagination"><span>{(currentPage-1)*50+1}–{Math.min(currentPage*50,filtered.length)} из {filtered.length.toLocaleString("ru-RU")} контактов</span><div><Button variant="outline" size="icon" aria-label="Предыдущая страница" disabled={currentPage===1} onClick={()=>setPage(currentPage-1)}><ArrowLeft size={16}/></Button><span>{currentPage} / {pages}</span><Button variant="outline" size="icon" aria-label="Следующая страница" disabled={currentPage===pages} onClick={()=>setPage(currentPage+1)}><ArrowRight size={16}/></Button></div></div>
      </>}
     </section>
     <footer className="content-footer"><span><Sprout size={14}/> Меньше забытых деталей. Больше настоящего общения.</span><span>Ваш личный круг</span></footer>
    </section>
   </main>
-  {creating&&<ContactForm onClose={()=>setCreating(false)} onCreated={c=>{setContacts(items=>[...items,c]);setSearch("");setPage(1);setCreating(false);setSelected(c);setToast("Контакт добавлен");}}/>}
-  {selected&&!creating&&<ContactDetails key={selected.id} contact={selected} onClose={()=>{setSelected(null);void load();}} onSaved={refreshAfterSave} onDeleted={id=>{loadSeq.current++;dueSeq.current++;setContacts(items=>items.filter(c=>c.id!==id));setDue(items=>items.filter(c=>c.id!==id));setSelected(null);setToast("Контакт удалён");void load();void loadDue();requestAnimationFrame(()=>searchRef.current?.focus());}}/>}
+  {creating&&<ContactForm groups={groupState.groups} onClose={()=>setCreating(false)} onCreated={c=>{setContacts(items=>[...items,c]);setSearch("");setPage(1);setCreating(false);setSelected(c);setToast("Контакт добавлен");}}/>}
+  {selected&&!creating&&<ContactDetails key={selected.id} contact={selected} groups={groupState.groups} onClose={()=>{setSelected(null);void load();}} onSaved={refreshAfterSave} onDeleted={id=>{loadSeq.current++;dueSeq.current++;setContacts(items=>items.filter(c=>c.id!==id));setDue(items=>items.filter(c=>c.id!==id));setSelected(null);setToast("Контакт удалён");void load();void loadDue();requestAnimationFrame(()=>searchRef.current?.focus());}}/>}
   {toast&&<div className="toast" role="status"><Check size={18}/>{toast}</div>}
  </div>;
 }
@@ -76,19 +96,27 @@ function Sheet({title,onClose,children}: {title:string;onClose:()=>void;children
  useEffect(()=>{const element=dialog.current;const previous=document.activeElement as HTMLElement|null;element?.showModal();return()=>{element?.close();previous?.focus();};},[]);
  return <dialog ref={dialog} className="sheet" aria-label={title} onCancel={e=>{e.preventDefault();onClose();}} onClick={e=>{if(e.target===e.currentTarget){const r=e.currentTarget.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)onClose();}}}><div className="sheet-top"><span>{title}</span><Button variant="ghost" size="icon" aria-label="Закрыть карточку" onClick={onClose}><X size={20}/></Button></div>{children}</dialog>;
 }
-function ContactForm({onClose,onCreated}: {onClose:()=>void;onCreated:(c:Contact)=>void}) {
- const [busy,setBusy]=useState(false);const [error,setError]=useState("");const [dirty,setDirty]=useState(false);
+function ContactForm({groups,onClose,onCreated}: {groups:ContactGroup[];onClose:()=>void;onCreated:(c:Contact)=>void}) {
+ const [busy,setBusy]=useState(false);const [error,setError]=useState("");const [dirty,setDirty]=useState(false);const [groupIds,setGroupIds]=useState<string[]>([]);
  const close=()=>{if(!busy&&(!dirty||window.confirm("Закрыть без сохранения контакта?")))onClose();};
- async function submit(e:React.FormEvent<HTMLFormElement>){e.preventDefault();setBusy(true);setError("");const data=Object.fromEntries(new FormData(e.currentTarget));try{const r=await fetch("/api/contacts",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});const result=await r.json();if(!r.ok)throw new Error(result.error);onCreated(result);}catch(e){setError(e instanceof Error?e.message:"Не удалось сохранить контакт");}finally{setBusy(false);}}
- return <Sheet title="Новый контакт" onClose={close}><div className="sheet-body"><div className="form-intro"><span className="stat-icon sage"><Users size={25}/></span><h2>Добавьте человека<br/>в свой круг</h2><p>Начните с имени. Остальное можно оставить пустым.</p></div><form onSubmit={submit} onChange={()=>setDirty(true)}><fieldset disabled={busy} className="form-fields"><label>Имя <span className="required">*</span><Input name="name" placeholder="Например, Анна Смирнова" required maxLength={150} autoFocus/></label><label>Откуда знакомы<Input name="context" placeholder="Работа, друзья, случайная встреча…" maxLength={1000}/></label><div className="form-pair"><label>Телефон<Input name="phone" type="tel" placeholder="+7 …" maxLength={80}/></label><label>Почта<Input name="email" type="email" placeholder="name@example.com"/></label></div><label>Заметка<textarea name="notes" placeholder="Что важно помнить об этом человеке?" rows={5} maxLength={20000}/></label></fieldset>{error&&<p className="form-error" role="alert">{error}</p>}<div className="form-actions"><Button variant="outline" type="button" onClick={close} disabled={busy}>Отмена</Button><Button type="submit" disabled={busy}>{busy?<LoaderCircle size={16} className="animate-spin"/>:<Plus size={16}/>}Добавить контакт</Button></div></form></div></Sheet>;
+ async function submit(e:React.FormEvent<HTMLFormElement>){e.preventDefault();setBusy(true);setError("");const data={...Object.fromEntries(new FormData(e.currentTarget)),groupIds};try{const r=await fetch("/api/contacts",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});const result=await r.json();if(!r.ok)throw new Error(result.error);onCreated(result);}catch(e){setError(e instanceof Error?e.message:"Не удалось сохранить контакт");}finally{setBusy(false);}}
+ return <Sheet title="Новый контакт" onClose={close}><div className="sheet-body"><div className="form-intro"><span className="stat-icon sage"><Users size={25}/></span><h2>Добавьте человека<br/>в свой круг</h2><p>Начните с имени. Остальное можно оставить пустым.</p></div><form onSubmit={submit} onChange={()=>setDirty(true)}><fieldset disabled={busy} className="form-fields"><label>Имя <span className="required">*</span><Input name="name" placeholder="Например, Анна Смирнова" required maxLength={150} autoFocus/></label><label>Откуда знакомы<Input name="context" placeholder="Работа, друзья, случайная встреча…" maxLength={1000}/></label><div className="form-pair"><label>Телефон<Input name="phone" type="tel" placeholder="+7 …" maxLength={80}/></label><label>Почта<Input name="email" type="email" placeholder="name@example.com"/></label></div><GroupPicker groups={groups} selected={groupIds} onChange={ids=>{setGroupIds(ids);setDirty(true);}} disabled={busy}/><label>Заметка<textarea name="notes" placeholder="Что важно помнить об этом человеке?" rows={5} maxLength={20000}/></label></fieldset>{error&&<p className="form-error" role="alert">{error}</p>}<div className="form-actions"><Button variant="outline" type="button" onClick={close} disabled={busy}>Отмена</Button><Button type="submit" disabled={busy}>{busy?<LoaderCircle size={16} className="animate-spin"/>:<Plus size={16}/>}Добавить контакт</Button></div></form></div></Sheet>;
 }
-function ContactDetails({contact,onClose,onSaved,onDeleted}: {contact:Contact;onClose:()=>void;onSaved:()=>void;onDeleted:(id:string)=>void}) {
- const [dirty,setDirty]=useState(false),[busy,setBusy]=useState(false);
+function ContactDetails({contact,groups,onClose,onSaved,onDeleted}: {contact:Contact;groups:ContactGroup[];onClose:()=>void;onSaved:()=>void;onDeleted:(id:string)=>void}) {
+ const [journalDirty,setJournalDirty]=useState(false),[journalBusy,setJournalBusy]=useState(false);
+ const [groupIds,setGroupIds]=useState(()=>contact.groups.map(group=>group.id));
+ const [savedGroupIds,setSavedGroupIds]=useState(()=>contact.groups.map(group=>group.id));
+ const [contactVersion,setContactVersion]=useState(contact.updatedAt);
+ const [groupBusy,setGroupBusy]=useState(false),[groupError,setGroupError]=useState(""),[groupNotice,setGroupNotice]=useState("");
  const [confirmDelete,setConfirmDelete]=useState(false),[deleting,setDeleting]=useState(false),[deleteError,setDeleteError]=useState("");
  const deletingRef=useRef(false),deleteTrigger=useRef<HTMLButtonElement>(null),cancelDelete=useRef<HTMLButtonElement>(null),wasConfirming=useRef(false);
+ const groupDirty=[...groupIds].sort().join(",")!==[...savedGroupIds].sort().join(",");
+ const dirty=journalDirty||groupDirty,busy=journalBusy||groupBusy;
  useEffect(()=>{if(confirmDelete)cancelDelete.current?.focus();else if(wasConfirming.current)deleteTrigger.current?.focus();wasConfirming.current=confirmDelete;},[confirmDelete]);
+ useEffect(()=>{const ids=contact.groups.map(group=>group.id);setGroupIds(ids);setSavedGroupIds(ids);setContactVersion(contact.updatedAt);},[contact.updatedAt,contact.groups]);
  const dismissDelete=()=>{if(!deletingRef.current)setConfirmDelete(false);};
  const close=()=>{if(deletingRef.current)return;if(confirmDelete){dismissDelete();return;}if(!busy&&(!dirty||window.confirm("Есть несохранённые изменения. Закрыть без сохранения?")))onClose();};
+ async function saveGroups(){setGroupBusy(true);setGroupError("");setGroupNotice("");try{const response=await fetch(`/api/contacts/${contact.id}/groups`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({groupIds,updatedAt:contactVersion})});const result=await response.json();if(!response.ok)throw new Error(result.error||"Не удалось сохранить группы");const saved=(result as Contact).groups.map(group=>group.id);setGroupIds(saved);setSavedGroupIds(saved);setContactVersion((result as Contact).updatedAt);setGroupNotice("Группы сохранены");onSaved();}catch(error){setGroupError(error instanceof Error?error.message:"Не удалось сохранить группы");}finally{setGroupBusy(false);}}
  async function remove(){
   if(deletingRef.current)return;deletingRef.current=true;setDeleting(true);setDeleteError("");
   try{const response=await fetch(`/api/contacts/${contact.id}`,{method:"DELETE"});if(!response.ok&&response.status!==404)throw new Error();onDeleted(contact.id);}
@@ -96,7 +124,7 @@ function ContactDetails({contact,onClose,onSaved,onDeleted}: {contact:Contact;on
   finally{deletingRef.current=false;setDeleting(false);}
  }
 
- return <Sheet title="Карточка контакта" onClose={close}><div className="sheet-body"><div className="profile"><Avatar name={contact.name} large/><h2>{contact.name}</h2><span>В вашем круге с {date(contact.createdAt)}</span></div><div className="detail-group"><h3>ОТКУДА ЗНАКОМЫ</h3><p>{contact.context||"Пока не указано"}</p></div><div className="detail-group"><h3>КОНТАКТЫ</h3><div className="detail-line"><Phone size={17}/>{contact.phone?<a href={`tel:${contact.phone.replace(/[^+0-9]/g,"")}`}>{contact.phone}</a>:<span>Телефон не указан</span>}</div><div className="detail-line"><Mail size={17}/>{contact.email?<a href={`mailto:${contact.email}`}>{contact.email}</a>:<span>Почта не указана</span>}</div></div><fieldset className="journal-fieldset" disabled={confirmDelete||deleting}><ContactJournal contact={contact} onChanged={onSaved} onDirty={setDirty} onBusy={setBusy}/></fieldset>
+ return <Sheet title="Карточка контакта" onClose={close}><div className="sheet-body"><div className="profile"><Avatar name={contact.name} large/><h2>{contact.name}</h2><GroupBadges groups={contact.groups}/><span>В вашем круге с {date(contact.createdAt)}</span></div><div className="detail-group"><h3>ОТКУДА ЗНАКОМЫ</h3><p>{contact.context||"Пока не указано"}</p></div><div className="detail-group"><h3>КОНТАКТЫ</h3><div className="detail-line"><Phone size={17}/>{contact.phone?<a href={`tel:${contact.phone.replace(/[^+0-9]/g,"")}`}>{contact.phone}</a>:<span>Телефон не указан</span>}</div><div className="detail-line"><Mail size={17}/>{contact.email?<a href={`mailto:${contact.email}`}>{contact.email}</a>:<span>Почта не указана</span>}</div></div><section className="contact-groups-editor" aria-labelledby="contact-groups-title"><h3 id="contact-groups-title">ГРУППЫ</h3><GroupPicker groups={groups} selected={groupIds} onChange={ids=>{setGroupIds(ids);setGroupError("");setGroupNotice("");}} disabled={confirmDelete||deleting||groupBusy}/>{groupError&&<p className="form-error" role="alert">{groupError}</p>}{groupNotice&&<p className="group-notice" role="status">{groupNotice}</p>}<Button type="button" variant="outline" disabled={!groupDirty||groupBusy||confirmDelete||deleting} onClick={()=>void saveGroups()}>{groupBusy?<LoaderCircle size={16} className="animate-spin"/>:<Check size={16}/>}Сохранить группы</Button></section><fieldset className="journal-fieldset" disabled={confirmDelete||deleting}><ContactJournal contact={contact} onChanged={onSaved} onDirty={setJournalDirty} onBusy={setJournalBusy}/></fieldset>
  <div className="delete-contact-area">{deleteError&&<p className="form-error" role="alert">{deleteError}</p>}
  {confirmDelete?<section className="delete-confirmation" aria-labelledby="delete-title" aria-busy={deleting}><h3 id="delete-title">Удалить контакт «{contact.name}»?</h3><p>Контакт и все заметки о нём будут удалены без возможности восстановления.{dirty?" Несохранённые изменения тоже будут потеряны.":""}</p><div className="delete-actions"><Button ref={cancelDelete} variant="outline" onClick={dismissDelete} disabled={deleting}>Отмена</Button><Button onClick={()=>void remove()} disabled={deleting}>{deleting?"Удаляем…":"Да, удалить"}</Button></div></section>:<Button ref={deleteTrigger} variant="outline" className="delete-contact-button" disabled={busy} onClick={()=>{setDeleteError("");setConfirmDelete(true);}}><Trash2 size={16}/>Удалить контакт</Button>}</div></div></Sheet>;
 }
