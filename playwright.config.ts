@@ -14,7 +14,11 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   webServer: {
-    command: `DATABASE_URL=${databaseURL} pnpm db:migrate && pnpm build && DATABASE_URL=${databaseURL} pnpm exec next start --hostname 127.0.0.1 --port 3100`,
+    command:
+      "pnpm db:migrate && pnpm build && pnpm exec next start --hostname 127.0.0.1 --port 3100",
+    env: {
+      DATABASE_URL: databaseURL,
+    },
     url: `${baseURL}/health`,
     reuseExistingServer: false,
     timeout: 180_000,

@@ -16,7 +16,10 @@ test("main scenario: create a contact, find it and save a conversation note", as
       page.getByRole("heading", { name: /Все контакты/ }),
     ).toBeVisible();
 
-    await page.getByRole("button", { name: "Добавить контакт" }).click();
+    await page
+      .getByRole("button", { name: "Добавить контакт" })
+      .first()
+      .click();
     const createContact = page.getByRole("dialog", { name: "Новый контакт" });
     await createContact.getByLabel(/Имя/).fill(contactName);
     await createContact.getByLabel("Откуда знакомы").fill("Playwright e2e");
