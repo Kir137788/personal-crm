@@ -12,6 +12,7 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:integration": "docker compose -f compose.e2e.yaml up -d --wait && node --conditions=react-server --import tsx scripts/test-keep-in-touch.mts",
     "test:e2e": "docker compose -f compose.e2e.yaml up -d --wait && playwright test",
     "test:e2e:ui": "docker compose -f compose.e2e.yaml up -d --wait && playwright test --ui",
     "typecheck": "tsc --noEmit",

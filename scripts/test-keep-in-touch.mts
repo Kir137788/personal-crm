@@ -9,7 +9,8 @@ import { DAY_MS, reminderDue, daysLabel } from "../lib/keep-in-touch.ts";
 import { newNoteInput, reminderInput } from "../lib/validation.ts";
 import type { Contact, ContactNote, DueContact } from "../lib/types.ts";
 // Dedicated disposable test database only; never loads project environment files.
-process.env.DATABASE_URL = "postgres://postgres@127.0.0.1:15439/crm_test";
+process.env.DATABASE_URL =
+  "postgres://postgres@127.0.0.1:5433/personal_crm_e2e";
 const client = postgres(process.env.DATABASE_URL, {
   max: 1,
   onnotice: () => {},
@@ -325,6 +326,7 @@ try {
   console.log(
     "PASS due ordering, disabled exclusion, database failure without partial write",
   );
+  await client`delete from contacts`;
   console.log("ALL KEEP-IN-TOUCH TESTS PASSED");
 } finally {
   await client.end();
