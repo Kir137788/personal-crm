@@ -3,5 +3,8 @@
 !.env.example
 node_modules/
 .next/
+test-results/
+playwright-report/
+blob-report/
 *.tsbuildinfo
 .DS_Store

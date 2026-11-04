@@ -8,6 +8,8 @@
     "start": "next start --hostname 127.0.0.1",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "docker compose -f compose.e2e.yaml up -d --wait && playwright test",
+    "test:e2e:ui": "docker compose -f compose.e2e.yaml up -d --wait && playwright test --ui",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
@@ -37,6 +39,7 @@
     "drizzle-kit": "latest",
     "tsx": "latest",
     "dotenv": "latest",
+    "@playwright/test": "1.64.1",
     "vitest": "5.1.0"
   }
 }
