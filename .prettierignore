@@ -1,0 +1,12 @@
+.next/
+node_modules/
+test-results/
+playwright-report/
+blob-report/
+coverage/
+.agents/
+openspec/
+specs/
+drizzle/
+pnpm-lock.yaml
+**/*.md

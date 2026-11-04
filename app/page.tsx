@@ -1,2 +1,4 @@
 import { ContactsApp } from "@/components/contacts-app";
-export default function Page() { return <ContactsApp />; }
+export default function Page() {
+  return <ContactsApp />;
+}

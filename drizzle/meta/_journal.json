@@ -15,6 +15,13 @@
       "when": 1793340783106,
       "tag": "0001_friendly_rogue",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793778685675,
+      "tag": "0002_light_imperial_guard",
+      "breakpoints": true
     }
   ]
 }
