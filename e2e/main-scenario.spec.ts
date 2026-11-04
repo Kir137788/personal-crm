@@ -12,18 +12,26 @@ test("main scenario: create a contact, find it and save a conversation note", as
 
   try {
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: /Все контакты/ })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /Все контакты/ }),
+    ).toBeVisible();
 
     await page.getByRole("button", { name: "Добавить контакт" }).click();
     const createContact = page.getByRole("dialog", { name: "Новый контакт" });
     await createContact.getByLabel(/Имя/).fill(contactName);
     await createContact.getByLabel("Откуда знакомы").fill("Playwright e2e");
-    await createContact.getByRole("button", { name: "Добавить контакт" }).click();
+    await createContact
+      .getByRole("button", { name: "Добавить контакт" })
+      .click();
 
-    await expect(page.getByRole("heading", { name: contactName })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: contactName }),
+    ).toBeVisible();
     await page.getByRole("button", { name: "Закрыть карточку" }).click();
 
-    await page.getByRole("textbox", { name: "Поиск контактов" }).fill(contactName);
+    await page
+      .getByRole("textbox", { name: "Поиск контактов" })
+      .fill(contactName);
     await page.getByRole("button", { name: new RegExp(contactName) }).click();
     await page.getByLabel("Новая заметка").fill(note);
     await page.getByRole("button", { name: "Добавить заметку" }).click();
@@ -42,7 +50,9 @@ test("main scenario: create a contact, find it and save a conversation note", as
       await secondPage
         .getByRole("textbox", { name: "Поиск контактов" })
         .fill(contactName);
-      await secondPage.getByRole("button", { name: new RegExp(contactName) }).click();
+      await secondPage
+        .getByRole("button", { name: new RegExp(contactName) })
+        .click();
       await expect(secondPage.getByText(note, { exact: true })).toBeVisible();
     } finally {
       await secondContext.close();

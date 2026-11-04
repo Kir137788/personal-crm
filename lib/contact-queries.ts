@@ -4,7 +4,9 @@ import { contactGroupMemberships, contactGroups, contacts } from "./schema";
 import { attachGroupsToContacts } from "./contact-group-view";
 export const contactFields = {
   ...getTableColumns(contacts),
-  lastContactAt: sql<string | null>`(select max(occurred_at) from contact_notes where contact_id = ${sql.identifier("contacts")}.${sql.identifier("id")})`,
+  lastContactAt: sql<
+    string | null
+  >`(select max(occurred_at) from contact_notes where contact_id = ${sql.identifier("contacts")}.${sql.identifier("id")})`,
   hasNotes: sql<boolean>`exists(select 1 from contact_notes where contact_id = ${sql.identifier("contacts")}.${sql.identifier("id")})`,
 };
 

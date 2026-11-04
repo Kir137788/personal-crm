@@ -33,9 +33,7 @@ describe("contact group membership", () => {
       ),
     ).resolves.toBe("contact-1");
 
-    expect(calls).toEqual([
-      { name: "Анна", groupIds: ["friends", "tennis"] },
-    ]);
+    expect(calls).toEqual([{ name: "Анна", groupIds: ["friends", "tennis"] }]);
   });
 });
 

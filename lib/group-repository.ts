@@ -10,7 +10,11 @@ export const groupRepository: GroupRepository = {
   },
   async findById(id) {
     return (
-      await db.select().from(contactGroups).where(eq(contactGroups.id, id)).limit(1)
+      await db
+        .select()
+        .from(contactGroups)
+        .where(eq(contactGroups.id, id))
+        .limit(1)
     )[0];
   },
   async findByNormalizedName(normalizedName) {
@@ -39,10 +43,7 @@ export const groupRepository: GroupRepository = {
   },
   async remove(id) {
     return (
-      await db
-        .delete(contactGroups)
-        .where(eq(contactGroups.id, id))
-        .returning()
+      await db.delete(contactGroups).where(eq(contactGroups.id, id)).returning()
     )[0];
   },
 };

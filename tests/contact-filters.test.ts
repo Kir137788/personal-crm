@@ -57,8 +57,6 @@ describe("contact group filters", () => {
   });
 
   it("scenario: Возврат ко всем контактам", () => {
-    expect(ids(filterContacts(contacts, ALL_GROUPS, "анна"))).toEqual([
-      "anna",
-    ]);
+    expect(ids(filterContacts(contacts, ALL_GROUPS, "анна"))).toEqual(["anna"]);
   });
 });

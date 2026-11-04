@@ -3,10 +3,7 @@ import type { ContactGroup } from "./types";
 export const ALL_GROUPS = "all";
 export const UNGROUPED = "ungrouped";
 
-export type ContactGroupFilter =
-  | typeof ALL_GROUPS
-  | typeof UNGROUPED
-  | string;
+export type ContactGroupFilter = typeof ALL_GROUPS | typeof UNGROUPED | string;
 
 export type FilterableContact = {
   id: string;

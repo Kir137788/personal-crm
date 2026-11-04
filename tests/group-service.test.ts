@@ -23,7 +23,12 @@ function repository(seed: StoredGroup[] = []): GroupRepository {
     },
     async insert(input) {
       const now = new Date("2026-11-04T08:00:00.000Z");
-      const group = { id: `group-${groups.length + 1}`, ...input, createdAt: now, updatedAt: now };
+      const group = {
+        id: `group-${groups.length + 1}`,
+        ...input,
+        createdAt: now,
+        updatedAt: now,
+      };
       groups.push(group);
       return group;
     },

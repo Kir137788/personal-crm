@@ -7,9 +7,7 @@ export type ContactCreationInput = {
 };
 
 export type ContactMembershipErrorCode =
-  | "unknown_group"
-  | "not_found"
-  | "conflict";
+  "unknown_group" | "not_found" | "conflict";
 
 export class ContactMembershipError extends Error {
   constructor(readonly code: ContactMembershipErrorCode) {

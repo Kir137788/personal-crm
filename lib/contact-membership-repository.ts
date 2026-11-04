@@ -44,9 +44,11 @@ export const contactMembershipRepository: ContactMembershipRepository = {
         });
       }
       if (groupIds.length) {
-        await transaction.insert(contactGroupMemberships).values(
-          groupIds.map((groupId) => ({ contactId: contact.id, groupId })),
-        );
+        await transaction
+          .insert(contactGroupMemberships)
+          .values(
+            groupIds.map((groupId) => ({ contactId: contact.id, groupId })),
+          );
       }
       return contact.id;
     });
@@ -68,9 +70,9 @@ export const contactMembershipRepository: ContactMembershipRepository = {
         .delete(contactGroupMemberships)
         .where(eq(contactGroupMemberships.contactId, contactId));
       if (groupIds.length) {
-        await transaction.insert(contactGroupMemberships).values(
-          groupIds.map((groupId) => ({ contactId, groupId })),
-        );
+        await transaction
+          .insert(contactGroupMemberships)
+          .values(groupIds.map((groupId) => ({ contactId, groupId })));
       }
       await transaction
         .update(contacts)

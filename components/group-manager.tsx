@@ -21,7 +21,8 @@ async function groupRequest(url: string, init: RequestInit) {
     throw new Error("Нет связи с приложением. Попробуйте ещё раз.");
   }
   const body = response.status === 204 ? null : await response.json();
-  if (!response.ok) throw new Error(body?.error || "Не удалось сохранить группу");
+  if (!response.ok)
+    throw new Error(body?.error || "Не удалось сохранить группу");
   return body;
 }
 
@@ -56,7 +57,8 @@ export function GroupManager({
     } catch (error) {
       dispatch({
         type: "mutation-failed",
-        message: error instanceof Error ? error.message : "Не удалось создать группу",
+        message:
+          error instanceof Error ? error.message : "Не удалось создать группу",
       });
     }
   }
@@ -84,7 +86,10 @@ export function GroupManager({
     } catch (error) {
       dispatch({
         type: "mutation-failed",
-        message: error instanceof Error ? error.message : "Не удалось переименовать группу",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Не удалось переименовать группу",
       });
     }
   }
@@ -103,7 +108,8 @@ export function GroupManager({
     } catch (error) {
       dispatch({
         type: "mutation-failed",
-        message: error instanceof Error ? error.message : "Не удалось удалить группу",
+        message:
+          error instanceof Error ? error.message : "Не удалось удалить группу",
       });
     }
   }
@@ -123,7 +129,10 @@ export function GroupManager({
         <Tags size={16} /> Управление группами
       </Button>
       {open && (
-        <section className="group-manager-panel" aria-label="Управление группами">
+        <section
+          className="group-manager-panel"
+          aria-label="Управление группами"
+        >
           <form className="group-create" onSubmit={createGroup}>
             <label htmlFor="new-group-name">Новая группа</label>
             <div>
@@ -202,7 +211,11 @@ export function GroupManager({
           )}
 
           {pendingDelete && (
-            <div className="group-delete-confirmation" role="alertdialog" aria-busy={state.busy}>
+            <div
+              className="group-delete-confirmation"
+              role="alertdialog"
+              aria-busy={state.busy}
+            >
               <strong>Удалить группу «{pendingDelete.name}»?</strong>
               <p>Контакты и их данные останутся на месте.</p>
               <div>
@@ -213,13 +226,20 @@ export function GroupManager({
                 >
                   Отмена
                 </Button>
-                <Button disabled={state.busy} onClick={() => void removeGroup()}>
+                <Button
+                  disabled={state.busy}
+                  onClick={() => void removeGroup()}
+                >
                   {state.busy ? "Удаляем…" : "Удалить группу"}
                 </Button>
               </div>
             </div>
           )}
-          {state.error && <p className="form-error" role="alert">{state.error}</p>}
+          {state.error && (
+            <p className="form-error" role="alert">
+              {state.error}
+            </p>
+          )}
         </section>
       )}
     </div>

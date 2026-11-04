@@ -11,7 +11,9 @@ export type StoredGroup = {
 export type GroupRepository = {
   list(): Promise<StoredGroup[]>;
   findById(id: string): Promise<StoredGroup | undefined>;
-  findByNormalizedName(normalizedName: string): Promise<StoredGroup | undefined>;
+  findByNormalizedName(
+    normalizedName: string,
+  ): Promise<StoredGroup | undefined>;
   insert(input: { name: string; normalizedName: string }): Promise<StoredGroup>;
   update(
     id: string,
@@ -53,10 +55,7 @@ export async function listGroups(repository: GroupRepository) {
   return repository.list();
 }
 
-export async function createGroup(
-  repository: GroupRepository,
-  input: string,
-) {
+export async function createGroup(repository: GroupRepository, input: string) {
   const prepared = groupName(input);
   if (await repository.findByNormalizedName(prepared.normalizedName)) {
     throw new GroupServiceError("duplicate");

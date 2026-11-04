@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  groupUiReducer,
-  initialGroupUiState,
-} from "@/lib/group-ui-state";
+import { groupUiReducer, initialGroupUiState } from "@/lib/group-ui-state";
 
 const groups = [
   { id: "friends", name: "Друзья" },
